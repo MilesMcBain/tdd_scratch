@@ -1,28 +1,46 @@
-
-# Install packages
-```{r setup, include=FALSE}
-# library(tidyverse)
-# install.packages("datapasta")
-# library(datapasta)
-```
-
 # Introduction
-Often you might find yourself needing to apply a function to a set of rows defined by some descriptor.
- 
+A common problem in data science is applying a function to a set of rows grouped by some feature using the `group_by()` and `summarise()` workflow. But what if one needs to collapse the data by some summary measure then join the summary measure back into the original dataset?
+
+The generalized problem can be described as:
+
+"For each id, perform some operation on or return a value from column x, given a condition in column x, or possibly column y"
+
+An overall workflow to consider is:
+
+1. `group_by()`
+2. Extract summary data values by creating a temporary variable
+3. `mutate()`
+
+Below we show some workflows for how to tackle specific "row-oriented" problems. 
+
+We start by creating a sample data set for patient groups A-F. For simplicity, there are three patients within each group.
 ```{r}
+# Load packages
+library(dplyr)
+
 # Create a sample data for different patient groups
-my_df <- data.frame(patient_grp = factor(rep(LETTERS[1:6], each=3)),
+my_df <- data.frame(patient_id = 1:18,
+                    patient_grp = factor(rep(LETTERS[1:6], each=3)),
                     a = rep(1:2),
-                    b = c(11:13, 21:23, 31:33, 41:43, 51:53, 61:63))
+                    b = c(11:13, 21:23, 31:33, 41:43, 51:53, 61:63),
+                    x = c(1:6, 1:12),
+                    y = c(rep("aa", 6), rep("bb", 12)))
 
 # Create a tibble
 my_tibb <- my_df %>% 
   as_tibble()
+my_tibb
 ```
 
 ### Counting within group and returning the most frequent
 
+In the first example, we want to count within groups.
+
+Here the `dplyr` function `add_count` comes in handy. Note that `add_count` is a shortcut step for `group_by()` %>% `add_tally()`. 
+
+
 ```{r}
+
 my_tibb %>%
   # add a column n with count by categories
   add_count(patient_grp, a) %>%
@@ -34,30 +52,48 @@ my_tibb %>%
   select(-n)
 ```
 
-
 ### The use of `case_when` to sort within a group
 
-## Overall workflow
+In this example, we want to `sort()` within group. In this example, we want to sort the data frame by `b`.  However, we want to sort groups "C" and "F" decreasing and the remaining groups increasing. 
 
-# 1. Create a sorted column
-# 2. Use case_when to selectively use the sorted or the original values.
+The overall workflow is to first sort with the flag `decreasing = TRUE` then use the `dplyr` function `case_when` to selectively sort
+
+This could be generalized to any function, not just `sort()`.
 ```{r}
 # The desired vector looks like this
-b = c(11:13, 21:23, 33:31, 41:43, 51:53, 61:63)
+desired <- c(11:13, 21:23, 33:31, 41:43, 51:53, 63:61)
 
 # i.e. when the patient group is C, the order of column b is reversed
 
-
 my_tibb %>%
   group_by(patient_grp) %>%
-  mutate(b_sorted = sort(b, decreasing = TRUE)) %>%
-  mutate(b_desired = case_when(patient_grp == "C" ~ b_sorted,
+  mutate(b_sort_dec = sort(b, decreasing = TRUE)) %>%
+  mutate(b_desired = case_when(patient_grp %in% c("C", "F") ~ b_sort_dec,
                               TRUE ~ b))
 ```
 
-You can then remove any columns you don't want to keep
+You can then remove the `b_sort_dec` columns you don't want to keep
+
+### Filtering columns by column pairs
+
+Another situation is when you want to filter a data frame by x-y pairs to only keep rows where there is an x and y for each. For example, if there are two possible values `aa` and `bb` we only want to keep those rows whichh as an `x` = `aa` AND an `x` = `bb`. In other words, we want to remove all rows where we have an`x` = `aa` but no corresponding `x` = `bb`, or vice versa.
+
+In our example data frame, we have 18 rows. However, only 12 of these rows have x-y pairs such that there is an `x` = `aa` and an `x` = `bb`. We effectively want to remove the final 6 rows. Again, the dplyr function `add_count` comes in handy.
+
+
+```{r}
+my_tibb %>%
+  add_count(x) %>% 
+  filter(n > 1)
+
+```
+
 
 # Further reading
+
+* Link to Jenny Bryan's row-oriented data manipulations
+
+Like SQL, dplyr uses window functions that are used to subset data within a group. An understanding of SQL window functions could be helpful.
 
 * Link to SQL Window functions
 
