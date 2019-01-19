@@ -3,7 +3,7 @@ A common problem in data science is applying a function to a set of rows grouped
 
 The generalized problem can be described as:
 
-"For each id, perform some operation on or return a value from column x, given a condition in column x, or possibly column y"
+"For each id, perform some operation on or return a value from column x, given a condition in column x, or possibly column y".
 
 An overall workflow to consider is:
 
